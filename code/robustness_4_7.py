@@ -355,15 +355,29 @@ print("\nsaved heatmap")
 navy, red = "#1f4e79", "#c0392b"
 cum_naive = port_naive.cumsum()
 cum_filt = port_filt.cumsum()
-fig2, ax2 = plt.subplots(figsize=(9, 4.5))
-ax2.plot(cum_naive.index, cum_naive.values, color=red, lw=1.3, label="Naïve (2.9)")
-ax2.plot(cum_filt.index, cum_filt.values, color=navy, lw=1.3, label="Filtrée (4.3)")
+dd_naive = cum_naive - cum_naive.cummax()
+dd_filt = cum_filt - cum_filt.cummax()
+
+fig2, axes2 = plt.subplots(2, 1, figsize=(10, 7), sharex=True,
+                            gridspec_kw={"height_ratios": [1.3, 1]})
+
+ax2 = axes2[0]
+ax2.plot(cum_naive.index, cum_naive.values, color=red, lw=1.3, label=r"$\mathcal{S}_{\mathrm{naïve}}$ (2.7)")
+ax2.plot(cum_filt.index, cum_filt.values, color=navy, lw=1.3, label=r"$\mathcal{S}_{\mathrm{filtrée}}$ (4.3)")
 ax2.axhline(0, color="gray", lw=0.7)
-ax2.set_ylabel("P&L cumulé")
-ax2.set_title("Portefeuille équipondéré — P&L cumulé net de coûts, 2019-2024")
+ax2.set_ylabel("P&L cumulé (unités de spread)")
+ax2.set_title("Portefeuille équipondéré (MA/V, XOM/CVX, HD/LOW) — période de trading 2019-2024")
 ax2.legend(loc="upper left", frameon=False)
-for sp in ["top", "right"]:
-    ax2.spines[sp].set_visible(False)
+
+ax3 = axes2[1]
+ax3.fill_between(dd_naive.index, dd_naive.values, 0, color=red, alpha=0.35, label="Drawdown naïve")
+ax3.fill_between(dd_filt.index, dd_filt.values, 0, color=navy, alpha=0.45, label="Drawdown filtrée")
+ax3.set_ylabel("Drawdown")
+ax3.legend(loc="lower left", frameon=False)
+
+for a in axes2:
+    for sp in ["top", "right"]:
+        a.spines[sp].set_visible(False)
 plt.tight_layout()
 plt.savefig("/sessions/peaceful-stoic-ptolemy/mnt/outputs/fig_4_6_equity_corrige.png", dpi=220, bbox_inches="tight")
-print("saved equity curve (corrigee)")
+print("saved equity curve (corrigee, avec drawdown)")
