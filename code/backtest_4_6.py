@@ -1,11 +1,4 @@
-"""
-Backtest empirique complet (parties 4.1-4.5) sur donnees reelles :
-compare la strategie naive (2.7-2.9) a la strategie filtree par les
-sauts (4.3), sur trois paires sectorielles reelles, avec decoupage
-formation/trading (4.5), estimation jump-diffusion par MLE (4.2),
-protocole de comparaison (4.4 : couts, metriques, test de Sharpe,
-regimes de marche).
-"""
+"""Backtest empirique (parties 4.1-4.6) : strategie naive vs. filtree par les sauts, trois paires reelles."""
 
 import math
 import numpy as np
@@ -15,9 +8,6 @@ from scipy.optimize import minimize
 from scipy.stats import norm
 from statsmodels.tsa.stattools import adfuller
 
-# ------------------------------------------------------------------
-# 0. Parametres globaux
-# ------------------------------------------------------------------
 PAIRS = [("MA", "V"), ("XOM", "CVX"), ("HD", "LOW")]
 START = "2014-01-01"
 FORMATION_END = "2018-12-31"
@@ -27,15 +17,12 @@ KAPPA = 2.0
 KAPPA_STOP = 3.5
 PI_STAR = 0.5
 EXIT_Z = 0.5
-WINDOW = 60          # fenetre roulante pour le z-score naif
+WINDOW = 60
 N_TRUNC = 10
 COST_BPS = 0.0010    # 10 bps par jambe, applique a l'ouverture et a la cloture
 
 np.random.seed(0)
 
-# ------------------------------------------------------------------
-# 1. Telechargement des donnees
-# ------------------------------------------------------------------
 tickers = sorted(set([t for p in PAIRS for t in p] + ["^GSPC"]))
 raw = yf.download(tickers, start=START, end=END, progress=False)["Close"].dropna()
 log_px = np.log(raw)
@@ -44,9 +31,6 @@ gspc = log_px["^GSPC"]
 gspc_ret = gspc.diff()
 realized_vol = gspc_ret.rolling(20).std()
 
-# ------------------------------------------------------------------
-# 2. Outils : melange jump-diffusion (identique a 4.2)
-# ------------------------------------------------------------------
 def mixture_density(x, lam_, mu_j, sig_s, sig_j, dt=1.0, N=N_TRUNC):
     p = np.zeros_like(x, dtype=float)
     for n in range(N + 1):
@@ -73,13 +57,11 @@ def gauss_loglik(u):
     return np.sum(norm.logpdf(u, loc=0.0, scale=sig))
 
 def posterior_jump_prob(u, lam_, mu_j, sig_s, sig_j, dt=1.0):
+    # P(saut | u_t) par Bayes, eq. (posterior_jump) du rapport
     no_jump = (1 - lam_*dt) * norm.pdf(u, loc=0.0, scale=math.sqrt(sig_s**2*dt))
     one_jump = lam_*dt * norm.pdf(u, loc=mu_j, scale=math.sqrt(sig_s**2*dt + sig_j**2))
     return one_jump / (no_jump + one_jump)
 
-# ------------------------------------------------------------------
-# 3. Estimation par paire sur la fenetre de FORMATION
-# ------------------------------------------------------------------
 pair_params = {}
 print("=== Fenetre de formation :", START, "->", FORMATION_END, "===\n")
 for Y, X in PAIRS:
@@ -112,9 +94,6 @@ for Y, X in PAIRS:
     print(f"{Y}/{X}: beta={beta:.3f}  ADF p={adf_p:.4f}  demi-vie={half_life:.1f}j  "
           f"lambda={fit['lam']:.3f}  muJ={fit['muJ']:.3f}  LR={LR:.1f}  p_LR={p_LR:.4f}")
 
-# ------------------------------------------------------------------
-# 4. Simulation des deux strategies sur la fenetre de TRADING
-# ------------------------------------------------------------------
 def simulate(Y, X, params, filtered):
     trad = log_px.loc[FORMATION_END:END]
     y, x = trad[Y].values, trad[X].values
@@ -143,7 +122,6 @@ def simulate(Y, X, params, filtered):
             continue
 
         if position != 0:
-            # P&L journalier proportionnel a la variation du spread
             daily_pnl[t] = position * (spread[t] - spread[t-1])
 
             duration = t - entry_day
@@ -185,9 +163,6 @@ for Y, X in PAIRS:
     results_naive[(Y, X)] = (pnl_n, tr_n)
     results_filtered[(Y, X)] = (pnl_f, tr_f)
 
-# ------------------------------------------------------------------
-# 5. Portefeuille agrege (equipondere) et metriques
-# ------------------------------------------------------------------
 def portfolio_returns(results):
     df = pd.concat({p: r[0] for p, r in results.items()}, axis=1)
     return df.mean(axis=1)
@@ -212,9 +187,7 @@ print("\n=== Resultats agreges (portefeuille equipondere, 3 paires) ===")
 print("Naive   :", m_naive)
 print("Filtree :", m_filtered)
 
-# ------------------------------------------------------------------
-# 6. Test de Jobson-Korkie / Memmel
-# ------------------------------------------------------------------
+# Test de Jobson-Korkie (1981) corrige par Memmel (2003) : compare deux Sharpe correles
 common = port_naive.index.intersection(port_filtered.index)
 A = port_naive.loc[common].values
 B = port_filtered.loc[common].values
@@ -233,9 +206,6 @@ print(f"\nTest Jobson-Korkie/Memmel : z = {z_JK:.3f}, p-value = {p_JK:.4f}")
 print(f"Sharpe naive annualise    : {m_naive['sharpe']:.3f}")
 print(f"Sharpe filtree annualise  : {m_filtered['sharpe']:.3f}")
 
-# ------------------------------------------------------------------
-# 7. Segmentation par regime de marche (vol realisee du S&P500)
-# ------------------------------------------------------------------
 vol_trading = realized_vol.loc[FORMATION_END:END].reindex(common)
 median_vol = vol_trading.median()
 high_vol_mask = (vol_trading > median_vol).values
@@ -253,9 +223,6 @@ print(f"Filtree - vol haute: Sharpe={sharpe_of(B[high_vol_mask]):.3f}   vol bass
 
 print("\nNb de jours en periode de forte volatilite:", high_vol_mask.sum(), "/", len(high_vol_mask))
 
-# ------------------------------------------------------------------
-# 8. Figure : courbes d'equite + drawdown
-# ------------------------------------------------------------------
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

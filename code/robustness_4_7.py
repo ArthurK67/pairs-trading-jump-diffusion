@@ -16,9 +16,6 @@ COST = 0.0010
 W = 60          # fenetre du z-score glissant naif
 N_MIX = 10      # troncature du melange de Poisson
 
-# ----------------------------------------------------------------------
-# 1. Bloc MLE jump-diffusion (identique a 4.2/4.6)
-# ----------------------------------------------------------------------
 def mixture_density(x, muJ, sigJ, sigS, lam, dt=1.0):
     k = np.arange(0, N_MIX + 1)
     w = np.exp(-lam * dt) * (lam * dt) ** k / factorial(k)
@@ -60,9 +57,6 @@ def posterior_jump_prob(x, muJ, sigJ, sigS, lam, dt=1.0):
             num += c
     return num / np.clip(den, 1e-12, None)
 
-# ----------------------------------------------------------------------
-# 2. Estimation sur la fenetre de formation
-# ----------------------------------------------------------------------
 def download(ticker):
     df = yf.download(ticker, start=FORM_START, end=TRAD_END, progress=False, auto_adjust=True)["Close"]
     if isinstance(df, pd.DataFrame):
@@ -102,9 +96,6 @@ def estimate_formation(A, B):
                 lam=lam, muJ=muJ, sigJ=sigJ, adf_p=adf_p, LR=LR, p_LR=p_LR,
                 spread=spread, phi=phi)
 
-# ----------------------------------------------------------------------
-# 3. Simulation generique (naive / filtree), parametree par kappa, pi*
-# ----------------------------------------------------------------------
 def simulate(spread_full, params, kappa, pi_star, use_filter, tstart, tend):
     s_all = spread_full
     phi = params["phi"]
@@ -171,9 +162,6 @@ def sharpe(ret):
         return np.nan
     return np.sqrt(252) * r.mean() / r.std()
 
-# ----------------------------------------------------------------------
-# 4. Estimation formation pour les 3 paires
-# ----------------------------------------------------------------------
 print("=== Estimation (fenetre de formation) ===")
 FORM = {}
 for A, B in PAIRS:
@@ -182,9 +170,6 @@ for A, B in PAIRS:
     print(f"{A}/{B}: beta={p['beta']:.3f} ADF_p={p['adf_p']:.4f} theta={p['theta']:.4f} "
           f"lambda={p['lam']:.3f} muJ={p['muJ']:.4f} LR_p={p['p_LR']:.4f}")
 
-# ----------------------------------------------------------------------
-# 5. Grille de sensibilite (pi*, kappa) sur le portefeuille agrege
-# ----------------------------------------------------------------------
 print("\n=== Grille de sensibilite (Sharpe portefeuille, strategie filtree) ===")
 kappas = [1.5, 2.0, 2.5]
 pistars = [0.3, 0.4, 0.5, 0.6, 0.7]
@@ -217,9 +202,6 @@ print(grid.round(3))
 n_trials = len(kappas) * len(pistars) * len(PAIRS)
 print(f"\nNombre d'essais dans la grille (kappa x pi* x paires) = {n_trials}")
 
-# ----------------------------------------------------------------------
-# 6. Stabilite par sous-periode (kappa=2, pi*=0.5, config retenue en 4.6)
-# ----------------------------------------------------------------------
 print("\n=== Stabilite par sous-periode (kappa=2, pi*=0.5) ===")
 subperiods = [("2019-01-01", "2020-12-31"),
               ("2021-01-01", "2022-12-31"),
@@ -239,20 +221,11 @@ for (t0, t1) in subperiods:
     sub_results.append((t0, t1, sharpe(pn), sharpe(pf)))
     print(f"{t0} -> {t1} : Sharpe naive={sharpe(pn):.3f}  Sharpe filtree={sharpe(pf):.3f}")
 
-# ----------------------------------------------------------------------
-# 7. Deflated Sharpe Ratio (Bailey & Lopez de Prado, 2014)
-# ----------------------------------------------------------------------
 def deflated_sharpe_ratio(sr_hat, T, N_trials, var_sr_trials, skew=0.0, kurt=3.0):
-    """
-    sr_hat        : Sharpe non-annualise du meilleur essai (par periode, ex. quotidien)
-    T             : nombre d'observations utilisees pour estimer sr_hat
-    N_trials      : nombre d'essais independants dans la recherche (proxy pour la
-                    correction de biais de selection du maximum)
-    var_sr_trials : variance des Sharpe (non-annualises) observes sur l'ensemble des essais
-    skew, kurt    : skewness et kurtosis (Pearson) des rendements de la strategie retenue
-    """
+    """Bailey & Lopez de Prado (2014). sr_hat/var_sr_trials en unites journalieres ;
+    N_trials est le nombre d'essais independants utilises pour approximer le Sharpe
+    attendu du meilleur essai sous H0 (correction du biais de selection du maximum)."""
     euler_gamma = 0.5772156649
-    # Sharpe attendu du maximum de N_trials tirages ~ N(0, var_sr_trials) sous H0
     sr0 = np.sqrt(var_sr_trials) * (
         (1 - euler_gamma) * norm.ppf(1 - 1.0 / N_trials)
         + euler_gamma * norm.ppf(1 - 1.0 / (N_trials * np.e))
@@ -282,9 +255,6 @@ print(f"SR observe (quotidien) = {sr_hat_daily:.4f}  (annualise = {sr_hat_daily*
 print(f"SR0 (benchmark sous H0, {n_trials} essais) = {sr0:.4f}  (annualise = {sr0*np.sqrt(252):.3f})")
 print(f"DSR z-stat = {z_dsr:.3f}   p-value(one-sided, SR>SR0) = {1-p_dsr:.4f}")
 
-# ----------------------------------------------------------------------
-# 8. Config de reference (kappa=2, pi*=0.5) : metriques completes + JK/Memmel
-# ----------------------------------------------------------------------
 print("\n=== Config de reference kappa=2, pi*=0.5 : metriques completes ===")
 rets_naive_full, rets_filt_full, stats_naive, stats_filt = [], [], [], []
 for A, B in PAIRS:
@@ -309,15 +279,14 @@ def agg_stats(stats_list):
 print("Naive   :", dict(sharpe=round(sharpe(port_naive), 4), max_dd=round(maxdd(port_naive), 4)), agg_stats(stats_naive))
 print("Filtree :", dict(sharpe=round(sharpe(port_filt), 4), max_dd=round(maxdd(port_filt), 4)), agg_stats(stats_filt))
 
-# Test de Jobson-Korkie / Memmel (formule derivee en 4.4)
 def jk_memmel_test(rA, rB):
+    # Test de Jobson-Korkie (1981), correction de variance de Memmel (2003)
     df = pd.concat([rA, rB], axis=1).dropna()
     df.columns = ["A", "B"]
     T = len(df)
     muA, muB = df["A"].mean(), df["B"].mean()
     sA, sB = df["A"].std(), df["B"].std()
     sAB = df["A"].cov(df["B"])
-    # variance du delta (Jobson-Korkie 1981, correction Memmel 2003)
     theta_var = (1/T) * (2*sA**2*sB**2 - 2*sA*sB*sAB + 0.5*muA**2*sB**2
                           + 0.5*muB**2*sA**2 - (muA*muB/(sA*sB))*sAB**2)
     z_stat = (sB*muA - sA*muB) / np.sqrt(theta_var)
@@ -329,9 +298,6 @@ print(f"\nTest Jobson-Korkie/Memmel : z = {z_jk:.3f}   p-value = {p_jk:.4f}")
 print(f"Sharpe naive annualise    : {sharpe(port_naive):.3f}")
 print(f"Sharpe filtree annualise  : {sharpe(port_filt):.3f}")
 
-# ----------------------------------------------------------------------
-# 9. Figures : heatmap de sensibilite + courbes d'equite corrigees
-# ----------------------------------------------------------------------
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

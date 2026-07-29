@@ -7,10 +7,7 @@ from scipy.stats import norm
 
 np.random.seed(7)
 
-# ---------------------------------------------------------------
-# 1. Simulation d'un spread OU augmente de sauts (memes parametres
-#    que la figure 4.2, pour rester coherent avec le reste du papier)
-# ---------------------------------------------------------------
+# Memes parametres de simulation que la figure 4.2, pour rester coherent
 theta   = 0.05
 mu_s    = 0.0
 sigma_s = 0.12
@@ -34,10 +31,8 @@ for t in range(1, T):
     s[t] = s[t-1] + theta * (mu_s - s[t-1]) * dt + sigma_s * math.sqrt(dt) * eps + xi
 jump_times = np.array(jump_times, dtype=int)
 
-# ---------------------------------------------------------------
-# 2. z-score "naif" (sous-partie 2.7) : moyenne/ecart-type empiriques
-#    sur fenetre glissante du spread BRUT (contamine par les sauts)
-# ---------------------------------------------------------------
+# z-score "naif" (2.7) : moyenne/ecart-type empiriques sur fenetre glissante
+# du spread brut (donc contamine par les sauts)
 window = 60
 s_series = s
 roll_mean = np.full(T, np.nan)
@@ -48,14 +43,9 @@ for t in range(window, T):
     roll_std[t] = w.std(ddof=1)
 z_naive = (s_series - roll_mean) / roll_std
 
-# ---------------------------------------------------------------
-# 3. Residu u_t (regression AR(1) naive, sous-partie 2.6) et
-#    probabilite a posteriori de saut pi_t (sous-partie 4.3, eq. Bayes)
-#    -- on utilise ici les VRAIS parametres de simulation comme
-#    proxy des parametres estimes par MLE en 4.2 (meme logique
-#    pedagogique que la figure 4.2 : verifier le mecanisme sur un
-#    cas ou la verite est connue).
-# ---------------------------------------------------------------
+# On utilise ici les VRAIS parametres de simulation comme proxy des parametres
+# estimes par MLE en 4.2 (meme logique pedagogique que la figure 4.2 : verifier
+# le mecanisme sur un cas ou la verite est connue)
 phi = 1 - theta * dt
 c = theta * dt * mu_s
 u = np.full(T, np.nan)
@@ -70,25 +60,17 @@ for t in range(1, T):
     one_jump = lam*dt * phi_gauss(u[t], mu_J, sigma_s**2 * dt + sigma_J**2)
     pi_t[t] = one_jump / (no_jump + one_jump)
 
-# ---------------------------------------------------------------
-# 4. Signaux : regle naive (2.7) vs regle filtree (4.3)
-#    -- meme z-score (naif, empirique, tel qu'utilise operationnellement
-#    en 2.7) ; la regle filtree ne change que le critere d'ENTREE, en
-#    lui ajoutant la condition pi_t < pi*.
-# ---------------------------------------------------------------
-candidate = np.abs(z_naive) > kappa          # ce que la regle naive (2.7) trade
-filtered_entry = candidate & (pi_t < pi_star)  # entree conservee par le filtre (4.3)
-blocked = candidate & (pi_t >= pi_star)        # entree annulee par le filtre (4.3)
+# Signaux : regle naive (2.7) vs regle filtree (4.3) -- meme z-score, la regle
+# filtree ne change que le critere d'ENTREE, en lui ajoutant pi_t < pi*
+candidate = np.abs(z_naive) > kappa
+filtered_entry = candidate & (pi_t < pi_star)
+blocked = candidate & (pi_t >= pi_star)
 
-# ---------------------------------------------------------------
-# 5. Figure a trois panneaux
-# ---------------------------------------------------------------
 navy, red, green, grey, orange = "#1f4e79", "#c0392b", "#2e7d32", "#aebfd6", "#e67e22"
 
 fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True,
                           gridspec_kw={"height_ratios": [1.1, 0.8, 0.9]})
 
-# --- (a) spread avec signaux ---
 ax = axes[0]
 ax.plot(s, color=navy, lw=1)
 ax.scatter(jump_times, s[jump_times], color="black", marker="x", s=35, zorder=6,
@@ -102,7 +84,6 @@ ax.set_ylabel(r"$\hat s_t$")
 ax.set_title(r"(a) Spread simulé — signaux d'entrée : règle naïve vs règle filtrée")
 ax.legend(loc="upper right", frameon=False, fontsize=8, ncol=1)
 
-# --- (b) probabilite de saut ---
 ax2 = axes[1]
 ax2.plot(pi_t, color=navy, lw=1)
 ax2.axhline(pi_star, color=red, ls="--", lw=1, label=r"$\pi^\ast=0{,}5$")
@@ -112,7 +93,6 @@ ax2.set_ylim(-0.03, 1.03)
 ax2.set_title(r"(b) Probabilité a posteriori de saut $\pi_t$ (filtrée, éq. Bayes)")
 ax2.legend(loc="upper right", frameon=False, fontsize=8)
 
-# --- (c) z-score naif avec seuil kappa ---
 ax3 = axes[2]
 ax3.plot(z_naive, color=navy, lw=1, label=r"$z_t$ (2.7, fenêtre 60j)")
 ax3.axhline(kappa, color="black", ls=":", lw=1, label=r"$\pm\kappa=\pm2$")

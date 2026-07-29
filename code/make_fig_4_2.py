@@ -8,11 +8,8 @@ from scipy.stats import norm
 
 np.random.seed(42)
 
-# ---------------------------------------------------------------
-# 1. Simulation d'un spread OU augmente de sauts (Euler-Maruyama,
-#    approximation bernoullienne : 0 ou 1 saut par pas de temps,
-#    cf. sous-parties 3.7 / 4.2 du document)
-# ---------------------------------------------------------------
+# Simulation d'un spread OU augmente de sauts (Euler-Maruyama, approximation
+# bernoullienne : 0 ou 1 saut par pas de temps, cf. sous-parties 3.7 / 4.2)
 theta   = 0.05     # vitesse de rappel -> demi-vie ~ ln(2)/theta ~ 13.9 jours
 mu_s    = 0.0
 sigma_s = 0.12
@@ -36,18 +33,13 @@ for t in range(1, T):
 
 jump_times = np.array(jump_times, dtype=int)
 
-# ---------------------------------------------------------------
-# 2. Residus AR(1) "naifs" (regression s_t sur s_{t-1}, sans
-#    distinguer les sauts -- exactement la regression de 2.6)
-# ---------------------------------------------------------------
+# Residus AR(1) "naifs" (regression s_t sur s_{t-1}, sans distinguer les sauts)
 s_lag  = s[:-1]
 s_curr = s[1:]
 phi_hat, c_hat = np.polyfit(s_lag, s_curr, 1)
 u = s_curr - phi_hat * s_lag - c_hat
 
-# ---------------------------------------------------------------
-# 3. MLE de la densite de melange tronquee (N=10), eq. (mixture_spread)
-# ---------------------------------------------------------------
+# MLE de la densite de melange tronquee (N=10), eq. (mixture_spread) du rapport
 N = 10
 
 def mixture_density(x, lam_, mu_j, sig_s, sig_j, dt=1.0, N=10):
@@ -84,9 +76,6 @@ xs = np.linspace(u.min() - 0.2, u.max() + 0.2, 600)
 fitted_mix = mixture_density(xs, lam_hat, mu_J_hat, sig_s_hat, sig_j_hat)
 gauss_fit  = norm.pdf(xs, loc=np.mean(u), scale=np.std(u))
 
-# ---------------------------------------------------------------
-# 4. Figure a deux panneaux -- legende a droite, en dehors des axes
-# ---------------------------------------------------------------
 navy = "#1f4e79"
 red  = "#c0392b"
 grey = "#aebfd6"
