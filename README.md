@@ -10,8 +10,8 @@ Summer project explorant le pairs trading (cointégration, spread, z-score, filt
   - `pair_trading_real_data.py` — cointégration, spread, z-score sur données réelles (MA/V, PEP/KO). Génère `spread_zscore_MA_V.png`, `spread_zscore_PEP_KO.png`, `residuals_mixture_MA_V.png`, `residuals_mixture_PEP_KO.png`.
   - `make_fig_4_2.py` — simulation OU à sauts + estimation MLE de mélange (figure 4.2). Génère `fig_4_2_mixture.png`.
   - `make_fig_4_3.py` — règle de décision filtrée par la probabilité a posteriori de saut (figure 4.3). Génère `fig_4_3_filtered_signal.png`.
-  - `backtest_4_6.py` — backtest comparatif stratégie naïve vs. filtrée (section 4.6). Génère `fig_4_6_equity.png`.
-  - `robustness_4_7.py` — grille de sensibilité (κ, π*) et tests de robustesse (section 4.7). Génère `fig_4_7_heatmap.png` et `fig_4_6_equity_corrige.png` (courbe d'équité avec stratégie corrigée, produite dans ce script malgré son nom).
+  - `backtest_4_6.py` — variante de backtest avec règle de sortie plus riche (stop, sortie temporelle, sortie sur saut détecté), non reconciliée numériquement avec les chiffres du rapport. Génère `fig_4_6_equity_backtest_demo.png` (non inclus dans le rapport, à titre démonstratif).
+  - `robustness_4_7.py` — grille de sensibilité (κ, π*), stabilité par sous-période, Deflated Sharpe Ratio (section 4.7), et config de référence (κ=2, π*=0,5) dont les résultats sont ceux reportés en 4.6. Génère `fig_4_7_heatmap.png` et `fig_4_6_equity.png` (figure effectivement incluse dans le rapport).
 
 ## Compiler le rapport
 
