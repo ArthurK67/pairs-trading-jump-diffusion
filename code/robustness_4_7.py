@@ -345,5 +345,5 @@ for a in axes2:
     for sp in ["top", "right"]:
         a.spines[sp].set_visible(False)
 plt.tight_layout()
-plt.savefig("/sessions/peaceful-stoic-ptolemy/mnt/outputs/fig_4_6_equity_corrige.png", dpi=220, bbox_inches="tight")
-print("saved equity curve (corrigee, avec drawdown)")
+plt.savefig("/sessions/peaceful-stoic-ptolemy/mnt/outputs/fig_4_6_equity.png", dpi=220, bbox_inches="tight")
+print("saved equity curve")

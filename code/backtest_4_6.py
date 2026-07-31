@@ -256,6 +256,9 @@ for a in axes:
         a.spines[sp].set_visible(False)
 
 plt.tight_layout()
-out_path = "/sessions/peaceful-stoic-ptolemy/mnt/outputs/fig_4_6_equity.png"
+# NB: regle de sortie plus riche que celle utilisee pour les chiffres du rapport
+# (cf. robustness_4_7.py, section "config de reference") -- nom de sortie distinct
+# pour eviter toute confusion avec graphes/fig_4_6_equity.png du depot.
+out_path = "/sessions/peaceful-stoic-ptolemy/mnt/outputs/fig_4_6_equity_backtest_demo.png"
 plt.savefig(out_path, dpi=220, bbox_inches="tight")
 print("\nsaved:", out_path)
