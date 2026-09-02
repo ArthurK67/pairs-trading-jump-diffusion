@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - "report.tex"
+      - "annexe.tex"
       - "graphes/**"
+      - "code/*.py"
       - ".github/workflows/build-pdf.yml"
   workflow_dispatch:
 
@@ -19,14 +21,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compile LaTeX document
+      - name: Compile report.tex
         uses: xu-cheng/latex-action@v3
         with:
           root_file: report.tex
           args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
 
-      - name: Commit updated PDF
+      - name: Compile annexe.tex
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: annexe.tex
+          args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+
+      - name: Commit updated PDFs
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-build PDF from report.tex [skip ci]"
-          file_pattern: report.pdf
+          commit_message: "Auto-build PDF(s) from .tex sources [skip ci]"
+          file_pattern: report.pdf annexe.pdf
