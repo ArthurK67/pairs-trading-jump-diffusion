@@ -5,9 +5,8 @@ on:
     branches: [main]
     paths:
       - "report.tex"
-      - "annexe.tex"
       - "graphes/**"
-      - "code/*.py"
+      - "annexe/**"
       - ".github/workflows/build-pdf.yml"
   workflow_dispatch:
 
@@ -27,14 +26,15 @@ jobs:
           root_file: report.tex
           args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
 
-      - name: Compile annexe.tex
+      - name: Compile annexe/annexe.tex
         uses: xu-cheng/latex-action@v3
         with:
           root_file: annexe.tex
+          working_directory: annexe
           args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
 
       - name: Commit updated PDFs
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-build PDF(s) from .tex sources [skip ci]"
-          file_pattern: report.pdf annexe.pdf
+          file_pattern: report.pdf annexe/annexe.pdf
