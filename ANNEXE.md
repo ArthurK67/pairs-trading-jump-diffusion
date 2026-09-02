@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage[final]{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{indentfirst}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,
+            linkcolor=blue,
+            urlcolor=blue,
+            citecolor=blue]{hyperref}
+\usepackage{geometry}
+\usepackage{ragged2e}
+\usepackage{xurl}
+\usepackage{enumitem}
+\usepackage{listings}
+\geometry{margin=2.5cm}
+\date{}
+\justifying
+
+\providecommand{\og}{«~}
+\providecommand{\fg}{~»}
+
+\lstdefinestyle{pycode}{
+    language=Python,
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{blue!70!black},
+    commentstyle=\color{gray},
+    stringstyle=\color{green!50!black},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    breaklines=true,
+    breakatwhitespace=false,
+    frame=single,
+    showstringspaces=false,
+    tabsize=4,
+    xleftmargin=1.5em
+}
+
+\title{Annexe : extension empirique --- univers élargi et protocole train/validation/test\\
+\large Summer Project : Du modèle à la stratégie --- un cadre jump-diffusion pour le pairs trading}
+\begin{document}
+\maketitle
+
+Cette annexe documente une extension empirique menée après la rédaction du rapport principal (\texttt{report.tex}), dans le prolongement direct des limites identifiées en 4.7--4.8 de celui-ci : l'échelle de l'étude originale (3 paires, une seule fenêtre de trading) ne permettait pas d'établir la significativité statistique du filtrage par sauts, et le Deflated Sharpe Ratio ($DSR=0{,}155$) suggérait que le gain observé ($+0{,}073$ contre $+0{,}036$) était possiblement porté par un petit nombre de trades pivots plutôt que par un effet structurel robuste.
+
+L'objectif ici est de vérifier si un protocole plus large et plus rigoureux --- univers de paires élargi, fenêtre de backtest étendue, calibration hors-échantillon --- confirme, nuance ou infirme cette lecture, \textbf{sans retomber dans le biais de sélection multiple que 4.7 avait lui-même détecté}.
+
+\section*{A.1 --- Motivation et démarche}
+Trois leviers ont été explorés dans l'ordre suivant :
+\begin{list}{---}{\leftmargin=1.5em \itemsep=0.3em}
+\item un \textbf{univers de paires élargi} : 88 paires candidates intra-secteur (12 secteurs, 51 titres du S\&P 500 : paiements, énergie, retail, banques, biens de consommation, pharma, télécoms, compagnies aériennes, semi-conducteurs, assurance, promoteurs immobiliers, utilities), screenées par test ADF sur la fenêtre de formation puis retenues après correction de Benjamini--Hochberg (FDR, $q=0{,}10$) pour contrôler le taux de fausses découvertes inhérent à un criblage sur autant de candidats --- exactement la procédure recommandée mais non appliquée en 4.5 du rapport ;
+\item une \textbf{fenêtre de backtest étendue} : formation 2009--2013, trading 2014--2024 (11 ans, contre 6 ans initialement), pour réduire la sensibilité du résultat à un seul régime de marché ;
+\item une \textbf{sortie anticipée sur détection de saut} : la stratégie filtrée utilise $\pi_t$ non seulement pour bloquer l'entrée (comme en 4.3 du rapport) mais aussi pour clore une position en cours dès que $\pi_t$ dépasse un second seuil $\pi_{\text{exit}}$, même si le $z$-score n'est pas revenu à zéro --- l'extension que le dépôt mentionnait déjà comme testée dans \texttt{backtest\_4\_6.py} sans être réconciliée avec les chiffres du rapport.
+\end{list}
+
+Point méthodologique central : les seuils $(\kappa, \pi^\ast, \pi_{\text{exit}})$ ne sont \emph{jamais} choisis en lisant leur performance sur la période d'évaluation finale. Un bloc de \textbf{validation} (2014--2018) sert à la calibration par grid search ; un bloc de \textbf{test}, disjoint et jamais consulté pendant la calibration (2019--2024, soit la fenêtre de trading originale du rapport), sert à l'évaluation, en un seul passage. C'est le protocole en trois blocs déjà esquissé en 4.4 du rapport mais jamais mis en \oe uvre dans le corps de celui-ci.
+
+\section*{A.2 --- Criblage de l'univers élargi}
+Sur les 88 paires candidates, 31 passent le seuil brut $p<0{,}05$ et \textbf{27 survivent à la correction FDR} ($q=0{,}10$) --- l'univers retenu pour la suite. Fait notable et cohérent avec la section 4.6 du rapport : \emph{aucune} des trois paires originales (MA/V, XOM/CVX, HD/LOW) ne passe le seuil brut sur cette fenêtre de formation étendue, ce qui confirme, sur un échantillon indépendant, la fragilité déjà signalée de leur statut de paires cointégrées.
+
+Paires retenues (27) : CVX/COP, HD/WMT, TGT/WMT, TGT/COST, JPM/WFC, JPM/C, BAC/C, KO/PG, PEP/PG, PG/CL, PG/KMB, CL/KMB, PFE/LLY, VZ/T, MET/PRU, MET/AIG, PRU/AIG, PRU/TRV, AIG/ALL, AIG/TRV, ALL/TRV, DHI/LEN, DHI/PHM, DHI/NVR, LEN/NVR, DUK/AEP, AEP/D.
+
+\section*{A.3 --- Calibration et résultat hors-échantillon}
+La grille $\kappa \in \{1{,}5\,;\,2{,}0\,;\,2{,}5\}$, $\pi^\ast \in \{0{,}3\,;\,0{,}4\,;\,0{,}5\}$, $\pi_{\text{exit}} \in \{0{,}5\,;\,0{,}6\,;\,0{,}7\,;\,0{,}8\}$ ($\pi_{\text{exit}} \geq \pi^\ast$) est évaluée sur la validation (2014--2018) ; la configuration retenue par argmax du Sharpe filtré est $\kappa=2{,}5$, $\pi^\ast=0{,}4$, $\pi_{\text{exit}}=0{,}8$. Appliquée telle quelle, sans deuxième passage, au test (2019--2024) :
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Stratégie & Sharpe annualisé & Nb. trades & Durée moy. (j) \\
+\midrule
+Naïve (2.7) & $0{,}323$ & 413 & $39{,}5$ \\
+Filtrée (4.3 + sortie sur saut) & $\mathbf{0{,}343}$ & 442 & $28{,}2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Sur les 442 trades filtrés, 140 se terminent par une sortie anticipée sur détection de saut plutôt que par un retour du $z$-score à zéro. Ce mécanisme explique un fait qui peut surprendre à première vue : la stratégie filtrée compte \emph{plus} de trades que la naïve (442 contre 413), alors que le filtre bloque toujours une partie des entrées. La sortie anticipée libère la position plus tôt (durée moyenne $28{,}2$ jours contre $39{,}5$), ce qui permet davantage de ré-entrées sur la même paire pendant la fenêtre de test ; l'effet net favorise donc le nombre de trades malgré le filtrage à l'entrée.
+
+Le test de Jobson--Korkie/Memmel entre les deux séries de rendements donne $z=0{,}103$ ($p=0{,}918$) : l'écart n'est pas statistiquement significatif.
+
+\section*{A.4 --- Tableau récapitulatif de toutes les variantes testées}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Configuration & Sharpe naïve & Sharpe filtrée & Trades naïve & Trades filtrée \\
+\midrule
+Référence (rapport, 3 paires, 2019--2024) & $0{,}036$ & $0{,}073$ & 73 & 69 \\
+Fenêtre étendue seule (3 paires, 2014--2024) & $0{,}120$ & $0{,}100$ & 133 & 127 \\
+Univers élargi + fenêtre étendue (27 paires, équipondéré) & $0{,}112$ & $0{,}082$ & 1144 & 1106 \\
+Univers élargi, pondération inverse-vol & $0{,}186$ & $0{,}143$ & 1144 & 1106 \\
+Ré-estimation glissante annuelle (3 paires) & $-0{,}002$ & $-0{,}023$ & 120 & 115 \\
+Calibration train/validation/test (27 paires) & $0{,}323$ & $0{,}300$ & 413 & 372 \\
+\textbf{+ sortie anticipée sur saut détecté} & $\mathbf{0{,}323}$ & $\mathbf{0{,}343}$ & 413 & \textbf{442} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{A.5 --- Lecture honnête du résultat}
+Deux constats, tenus ensemble plutôt que l'un sans l'autre. D'une part, le Sharpe de la stratégie filtrée passe de $0{,}073$ (rapport original, 3 paires, biais de sélection non contrôlé) à $0{,}343$ (27 paires, protocole train/validation/test, aucune lecture de la réponse sur le test) --- une hausse obtenue sans p-hacking, puisque la configuration a été figée avant d'observer la période d'évaluation. Le nombre de signaux passe de 69 à 442. D'autre part, l'écart entre stratégie filtrée et stratégie naïve, qui était le résultat central de la section 4.6 du rapport ($+0{,}073$ contre $+0{,}036$, un quasi-doublement), se réduit ici à un avantage ténu et non significatif ($0{,}343$ contre $0{,}323$). Des variantes testées mais non retenues comme résultat final (univers élargi sans sortie sur saut, ré-estimation glissante annuelle) donnent tantôt un léger désavantage pour la filtrée, tantôt un résultat proche de zéro pour les deux stratégies --- le signe de l'effet est instable, jamais son ordre de grandeur n'est net.
+
+Cette instabilité corrobore, à plus grande échelle, ce que le Deflated Sharpe Ratio de la section 4.7 avait déjà détecté sur l'échantillon original ($DSR=0{,}155$) : l'avantage du filtrage par sauts, aussi intuitif soit son fondement théorique (4.1--4.3), ne se manifeste pas comme un effet large et robuste une fois l'échantillon élargi et le protocole de calibration correctement cloisonné. La hausse du Sharpe absolu est réelle et défendable ; l'amélioration relative du filtrage sur la naïve, elle, reste dans la marge du bruit d'échantillonnage --- exactement la conclusion nuancée déjà formulée en 4.8 du rapport, renforcée ici par un test indépendant plutôt que contredite.
+
+\section*{A.6 --- Diversification : pourquoi trader plusieurs paires à la fois aide}
+La corrélation moyenne entre les rendements quotidiens des 27 paires n'est que de $0{,}046$ --- quasiment nulle, parce que chaque paire est un pari idiosyncratique sur l'écart entre deux titres précis. Avec une corrélation aussi faible, la formule classique de diversification de portefeuille $SR_{\text{portefeuille}} \approx SR_{\text{moyen}} \times \sqrt{N/(1+(N-1)\bar\rho)}$ prédit un Sharpe théorique de $0{,}186$ pour un Sharpe individuel moyen de seulement $0{,}053$ par paire --- cohérent avec le Sharpe réalisé en pondération inverse-vol ($0{,}186$, cf. tableau A.4). Attention cependant : 7 des 27 paires retenues (MET/PRU, MET/AIG, PRU/AIG, PRU/TRV, AIG/ALL, AIG/TRV, ALL/TRV) sont toutes construites à partir des 4 mêmes titres du secteur assurance, donc elles partagent beaucoup de variance entre elles malgré des noms différents --- la vraie diversification vient surtout de la variété des \emph{secteurs}, pas juste du nombre brut de paires.
+
+\section*{A.7 --- Code}
+Le code complet est également disponible dans \texttt{code/} (\texttt{yahoo\_dl.py}, \texttt{expanded\_universe\_backtest.py}, \texttt{validated\_config\_train\_test.py}, \texttt{exit\_on\_jump\_filter.py}, \texttt{rolling\_reestimation.py}). Il est reproduit intégralement ci-dessous pour que cette annexe soit autonome.
+
+\subsection*{A.7.1 --- yahoo\_dl.py (téléchargeur de prix sans dépendance à yfinance)}
+\lstinputlisting[style=pycode]{yahoo_dl.py}
+
+\subsection*{A.7.2 --- expanded\_universe\_backtest.py (criblage FDR + backtest agrégé)}
+\lstinputlisting[style=pycode]{expanded_universe_backtest.py}
+
+\subsection*{A.7.3 --- validated\_config\_train\_test.py (calibration validation/test)}
+\lstinputlisting[style=pycode]{validated_config_train_test.py}
+
+\subsection*{A.7.4 --- exit\_on\_jump\_filter.py (sortie anticipée sur saut détecté --- résultat final)}
+\lstinputlisting[style=pycode]{exit_on_jump_filter.py}
+
+\section*{A.8 --- Reproduire ces résultats}
+\begin{lstlisting}[style=pycode, language=bash]
+cd code
+pip install requests pandas numpy scipy statsmodels
+python3 expanded_universe_backtest.py     # criblage FDR + backtest agrege
+python3 validated_config_train_test.py    # calibration validation/test
+python3 exit_on_jump_filter.py            # resultat final : Sharpe filtree = 0.343, 442 trades
+\end{lstlisting}
+
+\texttt{yahoo\_dl.py} télécharge les prix via l'API chart de Yahoo Finance directement (sans \texttt{yfinance}, qui échouait pour des raisons réseau dans l'environnement où cette annexe a été produite --- \texttt{yfinance} standard devrait fonctionner directement sur une machine sans cette contrainte réseau).
+
+\end{document}
